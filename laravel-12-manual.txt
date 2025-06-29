@@ -1,0 +1,83 @@
+
+php artisan serve --host=192.168.1.112 --port=8000
+##########################################################
+
+Schema::defaultStringLength(255);
+
+'engine' => 'InnoDB',
+#########################
+
+#########################
+php artisan tinker
+
+User::factory()->count(50)->create()
+
+#########################
+
+php artisan make:request StoreUserRequest
+php artisan make:request UpdateUserRequest
+php artisan make:request BulkDeleteUsersRequest
+
+
+
+
+composer dump-autoload
+
+php artisan key:generate
+
+php artisan migrate:fresh --seed
+
+php artisan migrate
+
+php artisan migrate:rollback
+
+php artisan migrate --seed
+
+php artisan serve
+
+php artisan route:list
+
+php artisan optimize:clear
+
+php artisan cache:clear   ### root serve ####
+
+php artisan config:clear
+php artisan storage:link
+
+
+##################################################################################################################
+
+##################################################################################################################
+
+
+
+composer require laravel-lang/common --dev
+
+php artisan lang:add th
+
+php artisan lang:update
+
+
+
+Create a laravel 12 Livewire 3.6 component style tailwind 4.1
+#[Layout('components.layouts.dashboard')]
+
+
+laravel 12  style tailwind 4.1 vite build
+
+https://tailwindcss.com/docs/installation/framework-guides/laravel/vite
+
+
+
+Create a laravel 12 Livewire 3.6 component style tailwind 4.1
+
+
+#[Layout('components.layouts.dashboard')]
+Create a Livewire 3.6 component UniversitiesShow ยังไม่สรา้งไฟล์ blade รอผมขอก่อน
+
+สร้างไฟล์ blade component UniversitiesShow ตามกฎของ Livewire ที่ต้องมี single root element
+
+
+FacultiesList & FacultiesForm
+DivisionsList & DivisionsForm
+DepartmentsList & DepartmentsForm

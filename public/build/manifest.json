@@ -1,0 +1,44 @@
+{
+  "_vendor-Dq7h7Pqt.js": {
+    "file": "assets/vendor-Dq7h7Pqt.js",
+    "name": "vendor"
+  },
+  "resources/css/backend.css": {
+    "file": "assets/backend-1qKmjnxj.css",
+    "src": "resources/css/backend.css",
+    "isEntry": true
+  },
+  "resources/css/frontend.css": {
+    "file": "assets/frontend-BBNmek19.css",
+    "src": "resources/css/frontend.css",
+    "isEntry": true
+  },
+  "resources/js/backend.js": {
+    "file": "assets/backend-BE_jE7z9.js",
+    "name": "backend",
+    "src": "resources/js/backend.js",
+    "isEntry": true,
+    "imports": [
+      "resources/js/bootstrap.js",
+      "_vendor-Dq7h7Pqt.js"
+    ]
+  },
+  "resources/js/bootstrap.js": {
+    "file": "assets/bootstrap-9aOfczRC.js",
+    "name": "bootstrap",
+    "src": "resources/js/bootstrap.js",
+    "isEntry": true,
+    "imports": [
+      "_vendor-Dq7h7Pqt.js"
+    ]
+  },
+  "resources/js/frontend.js": {
+    "file": "assets/frontend-C-2XUZwR.js",
+    "name": "frontend",
+    "src": "resources/js/frontend.js",
+    "isEntry": true,
+    "imports": [
+      "_vendor-Dq7h7Pqt.js"
+    ]
+  }
+}

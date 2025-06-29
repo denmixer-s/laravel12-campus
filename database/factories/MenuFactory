@@ -1,0 +1,202 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Factories;
+
+use App\Models\Menu;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Menu>
+ */
+class MenuFactory extends Factory
+{
+    /**
+     * The name of the factory's corresponding model.
+     */
+    protected $model = Menu::class;
+
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        $icons = [
+            'fas fa-home',
+            'fas fa-info-circle',
+            'fas fa-cogs',
+            'fas fa-users',
+            'fas fa-envelope',
+            'fas fa-phone',
+            'fas fa-map-marker-alt',
+            'fas fa-shopping-cart',
+            'fas fa-star',
+            'fas fa-heart',
+            'fas fa-search',
+            'fas fa-user',
+            'fas fa-lock',
+            'fas fa-calendar',
+            'fas fa-file',
+            'fas fa-image',
+            'fas fa-video',
+            'fas fa-music',
+            'fas fa-download',
+            'fas fa-upload',
+        ];
+
+        $targets = ['_self', '_blank', '_parent', '_top'];
+
+        return [
+            'name' => $this->faker->words(rand(1, 3), true),
+            'url' => $this->faker->boolean(80) ? $this->faker->url() : null,
+            'parent_id' => null, // Will be set in states or when creating hierarchies
+            'sort_order' => $this->faker->numberBetween(0, 100),
+            'icon' => $this->faker->randomElement($icons),
+            'show' => $this->faker->randomElement(['frontend', 'backend', 'both']),
+            'target' => $this->faker->randomElement($targets),
+            'permission' => $this->faker->boolean(30) ? $this->faker->slug(2) : null,
+        ];
+    }
+
+    /**
+     * Create a root menu item (no parent).
+     */
+    public function root(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'parent_id' => null,
+            'url' => $this->faker->url(),
+        ]);
+    }
+
+    /**
+     * Create a parent menu item (container without URL).
+     */
+    public function parent(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'url' => null,
+        ]);
+    }
+
+    /**
+     * Create a child menu item with a specific parent.
+     */
+    public function child(int|Menu $parent = null): static
+    {
+        $parentId = $parent instanceof Menu ? $parent->id : $parent;
+
+        return $this->state(fn (array $attributes) => [
+            'parent_id' => $parentId,
+            'url' => $this->faker->url(),
+        ]);
+    }
+
+    /**
+     * Create a frontend menu item.
+     */
+    public function frontend(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'show' => 'frontend',
+            'permission' => null,
+        ]);
+    }
+
+    /**
+     * Create a backend menu item.
+     */
+    public function backend(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'show' => 'backend',
+            'permission' => $this->faker->slug(2),
+        ]);
+    }
+
+    /**
+     * Create a menu item visible in both frontend and backend.
+     */
+    public function both(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'show' => 'both',
+        ]);
+    }
+
+    /**
+     * Create a menu item that opens in a new tab.
+     */
+    public function newTab(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'target' => '_blank',
+        ]);
+    }
+
+    /**
+     * Create a menu item with a specific permission.
+     */
+    public function withPermission(string $permission): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'permission' => $permission,
+        ]);
+    }
+
+    /**
+     * Create a menu item with a specific icon.
+     */
+    public function withIcon(string $icon): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'icon' => $icon,
+        ]);
+    }
+
+    /**
+     * Create a menu item with a specific sort order.
+     */
+    public function withSortOrder(int $sortOrder): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    /**
+     * Create a complete menu hierarchy for testing.
+     */
+    public function createHierarchy(int $levels = 3, int $childrenPerLevel = 3): Menu
+    {
+        $root = $this->root()->create();
+
+        $this->createChildren($root, $levels - 1, $childrenPerLevel);
+
+        return $root->load('descendants');
+    }
+
+    /**
+     * Recursively create children for a menu item.
+     */
+    private function createChildren(Menu $parent, int $remainingLevels, int $childrenCount): void
+    {
+        if ($remainingLevels <= 0) {
+            return;
+        }
+
+        for ($i = 1; $i <= $childrenCount; $i++) {
+            $child = $this->child($parent)
+                         ->withSortOrder($i)
+                         ->create();
+
+            // Randomly decide if this child should have its own children
+            if ($remainingLevels > 1 && $this->faker->boolean(60)) {
+                $this->createChildren($child, $remainingLevels - 1, rand(1, $childrenCount));
+            }
+        }
+    }
+}

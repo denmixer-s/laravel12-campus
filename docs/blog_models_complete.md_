@@ -1,0 +1,557 @@
+<?php
+
+// app/Models/BlogCategory.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\Image\Enums\Fit;
+
+class BlogCategory extends Model implements HasMedia
+{
+    use InteractsWithMedia;
+
+    protected $fillable = [
+        'name', 'slug', 'description', 'color', 'icon',
+        'meta_title', 'meta_description', 'meta_keywords',
+        'parent_id', 'sort_order', 'is_active', 'posts_count'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'sort_order' => 'integer',
+        'posts_count' => 'integer',
+    ];
+
+    // MediaLibrary
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('featured_image')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('banner_image')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+    }
+
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->fit(Fit::Crop, 300, 300)
+            ->nonQueued();
+
+        $this->addMediaConversion('banner')
+            ->fit(Fit::Crop, 1200, 400)
+            ->nonQueued();
+    }
+
+    // Image helper methods
+    public function getFeaturedImageUrl(?string $conversion = null): ?string
+    {
+        return $this->getFirstMediaUrl('featured_image', $conversion ?: '');
+    }
+
+    public function getBannerImageUrl(?string $conversion = 'banner'): ?string
+    {
+        return $this->getFirstMediaUrl('banner_image', $conversion);
+    }
+
+    // Relationships
+    public function posts(): HasMany
+    {
+        return $this->hasMany(BlogPost::class);
+    }
+
+    public function publishedPosts(): HasMany
+    {
+        return $this->posts()->where('status', 'published');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(BlogCategory::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(BlogCategory::class, 'parent_id');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeRoot($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    // Boot method for slug generation
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($category) {
+            if (empty($category->slug)) {
+                $category->slug = \Str::slug($category->name);
+            }
+        });
+    }
+}
+
+// app/Models/BlogTag.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
+class BlogTag extends Model
+{
+    protected $fillable = [
+        'name', 'slug', 'description', 'color', 'is_active', 'posts_count'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'posts_count' => 'integer',
+    ];
+
+    // Relationships
+    public function posts(): BelongsToMany
+    {
+        return $this->belongsToMany(BlogPost::class, 'blog_post_tags');
+    }
+
+    public function publishedPosts(): BelongsToMany
+    {
+        return $this->posts()->where('status', 'published');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    // Boot method
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($tag) {
+            if (empty($tag->slug)) {
+                $tag->slug = \Str::slug($tag->name);
+            }
+        });
+    }
+}
+
+// app/Models/BlogPost.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\Image\Enums\Fit;
+
+class BlogPost extends Model implements HasMedia
+{
+    use InteractsWithMedia, SoftDeletes;
+
+    protected $fillable = [
+        'title', 'slug', 'excerpt', 'content',
+        'meta_title', 'meta_description', 'meta_keywords',
+        'user_id', 'blog_category_id',
+        'status', 'published_at', 'scheduled_at',
+        'is_featured', 'is_sticky', 'allow_comments',
+        'views_count', 'comments_count', 'likes_count', 'shares_count',
+        'reading_time', 'admin_notes'
+    ];
+
+    protected $casts = [
+        'published_at' => 'datetime',
+        'scheduled_at' => 'datetime',
+        'is_featured' => 'boolean',
+        'is_sticky' => 'boolean',
+        'allow_comments' => 'boolean',
+        'views_count' => 'integer',
+        'comments_count' => 'integer',
+        'likes_count' => 'integer',
+        'shares_count' => 'integer',
+        'reading_time' => 'integer',
+    ];
+
+    // MediaLibrary
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('featured_image')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('gallery')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('social_images')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('content_images')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    }
+
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->fit(Fit::Crop, 300, 200)
+            ->nonQueued();
+
+        $this->addMediaConversion('medium')
+            ->fit(Fit::Crop, 600, 400)
+            ->nonQueued();
+
+        $this->addMediaConversion('large')
+            ->fit(Fit::Crop, 1200, 800)
+            ->nonQueued();
+
+        $this->addMediaConversion('og_image')
+            ->fit(Fit::Crop, 1200, 630)
+            ->nonQueued();
+
+        $this->addMediaConversion('twitter_card')
+            ->fit(Fit::Crop, 1200, 600)
+            ->nonQueued();
+    }
+
+    // Image helper methods
+    public function getFeaturedImageUrl(?string $conversion = null): ?string
+    {
+        return $this->getFirstMediaUrl('featured_image', $conversion ?: '');
+    }
+
+    public function getGalleryImages()
+    {
+        return $this->getMedia('gallery');
+    }
+
+    public function getSocialImageUrl(?string $conversion = 'og_image'): ?string
+    {
+        return $this->getFirstMediaUrl('social_images', $conversion)
+            ?: $this->getFirstMediaUrl('featured_image', $conversion);
+    }
+
+    // Relationships
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(BlogCategory::class, 'blog_category_id');
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(BlogTag::class, 'blog_post_tags');
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(BlogComment::class);
+    }
+
+    public function approvedComments(): HasMany
+    {
+        return $this->comments()->where('status', 'approved');
+    }
+
+    public function likes(): HasMany
+    {
+        return $this->hasMany(BlogPostLike::class);
+    }
+
+    public function views(): HasMany
+    {
+        return $this->hasMany(BlogPostView::class);
+    }
+
+    // Scopes
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published')
+                    ->where('published_at', '<=', now());
+    }
+
+    public function scopeFeatured($query)
+    {
+        return $query->where('is_featured', true);
+    }
+
+    public function scopeSticky($query)
+    {
+        return $query->where('is_sticky', true);
+    }
+
+    public function scopeByCategory($query, $categoryId)
+    {
+        return $query->where('blog_category_id', $categoryId);
+    }
+
+    public function scopeByTag($query, $tagId)
+    {
+        return $query->whereHas('tags', function ($q) use ($tagId) {
+            $q->where('blog_tags.id', $tagId);
+        });
+    }
+
+    // Helper methods
+    public function isPublished(): bool
+    {
+        return $this->status === 'published' && $this->published_at <= now();
+    }
+
+    public function getReadingTimeAttribute(): int
+    {
+        if ($this->reading_time) {
+            return $this->reading_time;
+        }
+
+        $wordsPerMinute = 200;
+        $wordCount = str_word_count(strip_tags($this->content));
+        return max(1, ceil($wordCount / $wordsPerMinute));
+    }
+
+    public function getExcerptAttribute($value): string
+    {
+        if ($value) {
+            return $value;
+        }
+
+        return \Str::limit(strip_tags($this->content), 150);
+    }
+
+    // Boot method
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($post) {
+            if (empty($post->slug)) {
+                $post->slug = \Str::slug($post->title);
+            }
+
+            if ($post->status === 'published' && !$post->published_at) {
+                $post->published_at = now();
+            }
+        });
+
+        static::updating(function ($post) {
+            if ($post->isDirty('status') && $post->status === 'published' && !$post->published_at) {
+                $post->published_at = now();
+            }
+        });
+    }
+}
+
+// app/Models/BlogComment.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class BlogComment extends Model
+{
+    use SoftDeletes;
+
+    protected $fillable = [
+        'blog_post_id', 'user_id', 'parent_id',
+        'guest_name', 'guest_email', 'guest_website',
+        'content', 'user_agent', 'ip_address',
+        'status', 'approved_at', 'approved_by',
+        'likes_count', 'replies_count'
+    ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
+        'likes_count' => 'integer',
+        'replies_count' => 'integer',
+    ];
+
+    // Relationships
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(BlogPost::class, 'blog_post_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(BlogComment::class, 'parent_id');
+    }
+
+    public function replies(): HasMany
+    {
+        return $this->hasMany(BlogComment::class, 'parent_id');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // Scopes
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeTopLevel($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    // Helper methods
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function getAuthorNameAttribute(): string
+    {
+        return $this->user ? $this->user->name : $this->guest_name;
+    }
+
+    public function getAuthorEmailAttribute(): ?string
+    {
+        return $this->user ? $this->user->email : $this->guest_email;
+    }
+}
+
+// app/Models/BlogPostView.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class BlogPostView extends Model
+{
+    public $timestamps = false;
+
+    protected $fillable = [
+        'blog_post_id', 'user_id', 'ip_address',
+        'user_agent', 'referer', 'viewed_at'
+    ];
+
+    protected $casts = [
+        'viewed_at' => 'datetime',
+    ];
+
+    // Relationships
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(BlogPost::class, 'blog_post_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}
+
+// app/Models/BlogPostLike.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class BlogPostLike extends Model
+{
+    protected $fillable = [
+        'blog_post_id', 'user_id', 'type'
+    ];
+
+    // Relationships
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(BlogPost::class, 'blog_post_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // Scopes
+    public function scopeLikes($query)
+    {
+        return $query->where('type', 'like');
+    }
+
+    public function scopeDislikes($query)
+    {
+        return $query->where('type', 'dislike');
+    }
+}
+
+// app/Models/BlogSetting.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class BlogSetting extends Model
+{
+    protected $fillable = [
+        'key', 'value', 'type', 'description', 'is_public'
+    ];
+
+    protected $casts = [
+        'is_public' => 'boolean',
+    ];
+
+    // Helper methods
+    public static function get(string $key, $default = null)
+    {
+        $setting = static::where('key', $key)->first();
+
+        if (!$setting) {
+            return $default;
+        }
+
+        return match($setting->type) {
+            'boolean' => (bool) $setting->value,
+            'integer' => (int) $setting->value,
+            'json' => json_decode($setting->value, true),
+            default => $setting->value,
+        };
+    }
+
+    public static function set(string $key, $value, string $type = 'string'): void
+    {
+        $setting = static::firstOrNew(['key' => $key]);
+        $setting->value = is_array($value) ? json_encode($value) : $value;
+        $setting->type = $type;
+        $setting->save();
+    }
+}
